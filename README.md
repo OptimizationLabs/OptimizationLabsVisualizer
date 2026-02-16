@@ -2,7 +2,7 @@
 
 ## Установка
 ```
-pip install -r
+pip install -r requirements.txt
 ```
 ```
 python main.py
