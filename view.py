@@ -1,0 +1,435 @@
+"""View для MVC приложения"""
+from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+                                QTabWidget, QLabel, QDoubleSpinBox, QPushButton,
+                                QGroupBox, QFormLayout, QSplitter, QSlider)
+from PySide6.QtCore import Qt, Signal
+import pyqtgraph as pg
+import pyqtgraph.opengl as gl
+import numpy as np
+
+
+class FunctionWidget(QWidget):
+    """Виджет для выбора функции и её параметров"""
+    
+    function_changed = Signal(str, dict)
+    
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.param_spinboxes = {}
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout()
+        
+        # Вкладки для разных функций
+        self.tabs = QTabWidget()
+        
+        # Создаем вкладки для каждой функции
+        for func_name in self.model.get_available_functions():
+            tab = self.create_function_tab(func_name)
+            self.tabs.addTab(tab, func_name.capitalize())
+            
+        self.tabs.currentChanged.connect(self.on_function_changed)
+        
+        layout.addWidget(self.tabs)
+        self.setLayout(layout)
+        
+    def create_function_tab(self, func_name):
+        """Создает вкладку для функции"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        # Информация о функции
+        info_label = QLabel(f"Функция: {func_name}")
+        info_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(info_label)
+        
+        # Параметры функции
+        params_info = self.model.get_function_params_info(func_name)
+        
+        if params_info:
+            params_group = QGroupBox("Параметры")
+            params_layout = QFormLayout()
+            
+            for param in params_info:
+                spinbox = QDoubleSpinBox()
+                spinbox.setMinimum(param['min'])
+                spinbox.setMaximum(param['max'])
+                spinbox.setSingleStep(param['step'])
+                spinbox.setValue(param['default'])
+                spinbox.valueChanged.connect(
+                    lambda v, fn=func_name, pn=param['name']: 
+                    self.on_param_changed(fn, pn, v)
+                )
+                
+                params_layout.addRow(f"{param['name']}:", spinbox)
+                
+                # Сохраняем spinbox
+                if func_name not in self.param_spinboxes:
+                    self.param_spinboxes[func_name] = {}
+                self.param_spinboxes[func_name][param['name']] = spinbox
+                
+            params_group.setLayout(params_layout)
+            layout.addWidget(params_group)
+        else:
+            layout.addWidget(QLabel("Нет параметров"))
+            
+        layout.addStretch()
+        widget.setLayout(layout)
+        return widget
+    
+    def on_function_changed(self, index):
+        """Обработчик изменения выбранной функции"""
+        func_name = self.model.get_available_functions()[index]
+        params = self.get_current_params(func_name)
+        self.function_changed.emit(func_name, params)
+        
+    def on_param_changed(self, func_name, param_name, value):
+        """Обработчик изменения параметра"""
+        # Проверяем, что это текущая функция
+        current_index = self.tabs.currentIndex()
+        current_func = self.model.get_available_functions()[current_index]
+        
+        if current_func == func_name:
+            params = self.get_current_params(func_name)
+            self.function_changed.emit(func_name, params)
+            
+    def get_current_params(self, func_name):
+        """Получает текущие значения параметров функции"""
+        if func_name not in self.param_spinboxes:
+            return {}
+        
+        params = {}
+        for param_name, spinbox in self.param_spinboxes[func_name].items():
+            params[param_name] = spinbox.value()
+        return params
+
+
+class AlgorithmWidget(QWidget):
+    """Виджет для выбора алгоритма и его параметров"""
+    
+    algorithm_changed = Signal(str, dict)
+    run_optimization = Signal()
+    run_optimization_random = Signal()
+    animation_speed_changed = Signal(int)  # Новый сигнал для скорости
+    
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.param_spinboxes = {}
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout()
+        
+        # Вкладки для разных алгоритмов
+        self.tabs = QTabWidget()
+        
+        # Создаем вкладки для каждого алгоритма
+        for algo_name in self.model.get_available_algorithms():
+            tab = self.create_algorithm_tab(algo_name)
+            self.tabs.addTab(tab, algo_name.replace('_', ' ').title())
+            
+        self.tabs.currentChanged.connect(self.on_algorithm_changed)
+        
+        layout.addWidget(self.tabs)
+        
+        # Группа управления анимацией
+        animation_group = QGroupBox("Управление анимацией")
+        animation_layout = QVBoxLayout()
+        
+        # Слайдер скорости анимации
+        speed_layout = QHBoxLayout()
+        speed_label = QLabel("Скорость анимации:")
+        speed_layout.addWidget(speed_label)
+        
+        self.speed_slider = QSlider(Qt.Horizontal)
+        self.speed_slider.setMinimum(10)   # 10 мс = очень быстро
+        self.speed_slider.setMaximum(500)  # 500 мс = медленно
+        self.speed_slider.setValue(50)     # По умолчанию
+        self.speed_slider.setTickPosition(QSlider.TicksBelow)
+        self.speed_slider.setTickInterval(50)
+        self.speed_slider.valueChanged.connect(self.on_speed_changed)
+        speed_layout.addWidget(self.speed_slider)
+        
+        self.speed_value_label = QLabel("50 мс")
+        speed_layout.addWidget(self.speed_value_label)
+        
+        animation_layout.addLayout(speed_layout)
+        animation_group.setLayout(animation_layout)
+        layout.addWidget(animation_group)
+        
+        # Кнопки запуска оптимизации
+        buttons_layout = QVBoxLayout()
+        
+        self.run_button = QPushButton("Запустить из центра (0, 0)")
+        self.run_button.clicked.connect(self.run_optimization.emit)
+        buttons_layout.addWidget(self.run_button)
+        
+        self.run_random_button = QPushButton("Запустить из случайной точки")
+        self.run_random_button.clicked.connect(self.run_optimization_random.emit)
+        buttons_layout.addWidget(self.run_random_button)
+        
+        layout.addLayout(buttons_layout)
+        
+        self.setLayout(layout)
+        
+    def on_speed_changed(self, value):
+        """Обработчик изменения скорости анимации"""
+        self.speed_value_label.setText(f"{value} мс")
+        self.animation_speed_changed.emit(value)
+        
+    def create_algorithm_tab(self, algo_name):
+        """Создает вкладку для алгоритма"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        # Информация об алгоритме
+        info_label = QLabel(f"Алгоритм: {algo_name.replace('_', ' ').title()}")
+        info_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(info_label)
+        
+        # Параметры алгоритма
+        params_info = self.model.get_algorithm_params_info(algo_name)
+        
+        if params_info:
+            params_group = QGroupBox("Параметры")
+            params_layout = QFormLayout()
+            
+            for param in params_info:
+                spinbox = QDoubleSpinBox()
+                spinbox.setMinimum(param['min'])
+                spinbox.setMaximum(param['max'])
+                spinbox.setSingleStep(param['step'])
+                spinbox.setValue(param['default'])
+                spinbox.setDecimals(3)
+                spinbox.valueChanged.connect(
+                    lambda v, an=algo_name, pn=param['name']: 
+                    self.on_param_changed(an, pn, v)
+                )
+                
+                params_layout.addRow(f"{param['name']}:", spinbox)
+                
+                # Сохраняем spinbox
+                if algo_name not in self.param_spinboxes:
+                    self.param_spinboxes[algo_name] = {}
+                self.param_spinboxes[algo_name][param['name']] = spinbox
+                
+            params_group.setLayout(params_layout)
+            layout.addWidget(params_group)
+            
+        layout.addStretch()
+        widget.setLayout(layout)
+        return widget
+    
+    def on_algorithm_changed(self, index):
+        """Обработчик изменения выбранного алгоритма"""
+        algo_name = self.model.get_available_algorithms()[index]
+        params = self.get_current_params(algo_name)
+        self.algorithm_changed.emit(algo_name, params)
+        
+    def on_param_changed(self, algo_name, param_name, value):
+        """Обработчик изменения параметра"""
+        # Проверяем, что это текущий алгоритм
+        current_index = self.tabs.currentIndex()
+        current_algo = self.model.get_available_algorithms()[current_index]
+        
+        if current_algo == algo_name:
+            params = self.get_current_params(algo_name)
+            self.algorithm_changed.emit(algo_name, params)
+            
+    def get_current_params(self, algo_name):
+        """Получает текущие значения параметров алгоритма"""
+        if algo_name not in self.param_spinboxes:
+            return {}
+        
+        params = {}
+        for param_name, spinbox in self.param_spinboxes[algo_name].items():
+            params[param_name] = spinbox.value()
+        return params
+
+
+class PlotWidget(QWidget):
+    """Виджет для отображения 3D графика"""
+    
+    def __init__(self):
+        super().__init__()
+        self.current_X = None
+        self.current_Y = None
+        self.current_Z = None
+        self.path_items = []  # Список всех элементов пути
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Создаем 3D виджет
+        self.view = gl.GLViewWidget()
+        self.view.setCameraPosition(distance=40, elevation=30, azimuth=45)
+        
+        # Добавляем сетки для осей
+        self.setup_grid()
+        
+        # Элемент для отображения поверхности
+        self.surface_item = None
+        
+        layout.addWidget(self.view)
+        self.setLayout(layout)
+        
+    def setup_grid(self):
+        """Настройка сеток координат"""
+        # Сетка XY (внизу)
+        gx = gl.GLGridItem()
+        gx.setSize(20, 20, 1)
+        gx.setSpacing(2, 2, 1)
+        self.view.addItem(gx)
+        
+        # Оси координат
+        axis = gl.GLAxisItem()
+        axis.setSize(10, 10, 10)
+        self.view.addItem(axis)
+        
+    def update_function(self, X, Y, Z):
+        """Обновляет 3D график функции"""
+        # Сохраняем текущие данные для обработки кликов
+        self.current_X = X
+        self.current_Y = Y
+        self.current_Z = Z
+        
+        # Удаляем старую поверхность
+        if self.surface_item is not None:
+            self.view.removeItem(self.surface_item)
+            
+        # Нормализуем Z для цветовой карты
+        z_norm = (Z - Z.min()) / (Z.max() - Z.min())
+        
+        # Создаем цвета для поверхности (виридис)
+        colors = pg.colormap.get('viridis').mapToFloat(z_norm)
+        
+        # Создаем новую поверхность
+        self.surface_item = gl.GLSurfacePlotItem(
+            x=X[0, :],
+            y=Y[:, 0],
+            z=Z,
+            colors=colors,
+            shader='shaded',
+            smooth=True
+        )
+        
+        self.view.addItem(self.surface_item)
+        
+    def update_path(self, path):
+        """Обновляет путь оптимизации в 3D"""
+        # Удаляем старый путь
+        self.clear_path()
+            
+        if not path or self.current_Z is None:
+            return
+            
+        # Получаем координаты пути
+        x_coords = np.array([p[0] for p in path])
+        y_coords = np.array([p[1] for p in path])
+        
+        # Вычисляем Z координаты для каждой точки пути
+        # Интерполируем значения из текущей поверхности
+        z_coords = []
+        for x, y in path:
+            # Находим ближайшие индексы в сетке
+            x_idx = np.argmin(np.abs(self.current_X[0, :] - x))
+            y_idx = np.argmin(np.abs(self.current_Y[:, 0] - y))
+            z_coords.append(self.current_Z[y_idx, x_idx])
+        
+        z_coords = np.array(z_coords)
+        
+        # Создаем точки для линии
+        pts = np.column_stack([x_coords, y_coords, z_coords])
+        
+        # Создаем линию пути (красная)
+        line_item = gl.GLLinePlotItem(
+            pos=pts,
+            color=(1.0, 0.0, 0.0, 1.0),  # Красная линия
+            width=3,
+            antialias=True
+        )
+        self.view.addItem(line_item)
+        self.path_items.append(line_item)
+        
+        # Промежуточные точки (все кроме последней) - черные
+        if len(pts) > 1:
+            intermediate_pts = pts[:-1]
+            scatter_black = gl.GLScatterPlotItem(
+                pos=intermediate_pts,
+                color=(0.0, 0.0, 0.0, 1.0),  # Черный
+                size=6,
+                pxMode=True
+            )
+            self.view.addItem(scatter_black)
+            self.path_items.append(scatter_black)
+        
+        # Финальная точка - красная и больше
+        final_pt = pts[-1:]
+        scatter_red = gl.GLScatterPlotItem(
+            pos=final_pt,
+            color=(1.0, 0.0, 0.0, 1.0),  # Красный
+            size=10,  # Больше размер для финальной точки
+            pxMode=True
+        )
+        self.view.addItem(scatter_red)
+        self.path_items.append(scatter_red)
+        
+    def clear_path(self):
+        """Очищает путь оптимизации"""
+        for item in self.path_items:
+            self.view.removeItem(item)
+        self.path_items = []
+
+
+class MainView(QMainWindow):
+    """Главное окно приложения"""
+    
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.init_ui()
+        
+    def init_ui(self):
+        self.setWindowTitle("Оптимизация функций - MVC приложение")
+        self.setGeometry(100, 100, 1200, 800)
+        
+        # Центральный виджет
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        # Основной layout
+        main_layout = QHBoxLayout()
+        
+        # Splitter для управления размерами
+        splitter = QSplitter(Qt.Horizontal)
+        
+        # График (70% ширины)
+        self.plot_widget = PlotWidget()
+        splitter.addWidget(self.plot_widget)
+        
+        # Правая панель (30% ширины)
+        right_panel = QWidget()
+        right_layout = QVBoxLayout()
+        
+        # Виджет функций
+        self.function_widget = FunctionWidget(self.model)
+        right_layout.addWidget(self.function_widget)
+        
+        # Виджет алгоритмов
+        self.algorithm_widget = AlgorithmWidget(self.model)
+        right_layout.addWidget(self.algorithm_widget)
+        
+        right_panel.setLayout(right_layout)
+        splitter.addWidget(right_panel)
+        
+        # Устанавливаем соотношение 70/30
+        splitter.setStretchFactor(0, 7)
+        splitter.setStretchFactor(1, 3)
+        
+        main_layout.addWidget(splitter)
+        central_widget.setLayout(main_layout)
