@@ -1,10 +1,11 @@
 """View для MVC приложения"""
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                 QTabWidget, QLabel, QDoubleSpinBox, QPushButton,
-                                QGroupBox, QFormLayout, QSplitter, QSlider)
+                                QGroupBox, QFormLayout, QSplitter, QSlider, QSpinBox)
 from PySide6.QtCore import Qt, Signal
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
+import math
 import numpy as np
 
 
@@ -145,9 +146,9 @@ class AlgorithmWidget(QWidget):
         speed_layout.addWidget(speed_label)
         
         self.speed_slider = QSlider(Qt.Horizontal)
-        self.speed_slider.setMinimum(10)   # 10 мс = очень быстро
-        self.speed_slider.setMaximum(500)  # 500 мс = медленно
-        self.speed_slider.setValue(50)     # По умолчанию
+        self.speed_slider.setMinimum(10)
+        self.speed_slider.setMaximum(500)
+        self.speed_slider.setValue(50) 
         self.speed_slider.setTickPosition(QSlider.TicksBelow)
         self.speed_slider.setTickInterval(50)
         self.speed_slider.valueChanged.connect(self.on_speed_changed)
@@ -196,24 +197,44 @@ class AlgorithmWidget(QWidget):
         if params_info:
             params_group = QGroupBox("Параметры")
             params_layout = QFormLayout()
-            
+
             for param in params_info:
-                spinbox = QDoubleSpinBox()
-                spinbox.setMinimum(param['min'])
-                spinbox.setMaximum(param['max'])
-                spinbox.setSingleStep(param['step'])
-                spinbox.setValue(param['default'])
-                spinbox.setDecimals(3)
+
+                param_type = param.get('type', float)
+
+                if param_type is int:
+                    spinbox = QSpinBox()
+                    spinbox.setMinimum(param['min'])
+                    spinbox.setMaximum(param['max'])
+                    spinbox.setSingleStep(param['step'])
+                    spinbox.setValue(param['default'])
+
+                else:
+                    spinbox = QDoubleSpinBox()
+                    spinbox.setMinimum(param['min'])
+                    spinbox.setMaximum(param['max'])
+                    spinbox.setSingleStep(param['step'])
+                    spinbox.setValue(param['default'])
+
+                    # Автоматическое вычисление количества знаков
+                    step = param['step']
+                    if step < 1:
+                        decimals = max(0, -int(math.floor(math.log10(step))))
+                    else:
+                        decimals = 0
+
+                    spinbox.setDecimals(decimals)
+
                 spinbox.valueChanged.connect(
-                    lambda v, an=algo_name, pn=param['name']: 
+                    lambda v, an=algo_name, pn=param['name']:
                     self.on_param_changed(an, pn, v)
                 )
-                
-                params_layout.addRow(f"{param['name']}:", spinbox)
-                
-                # Сохраняем spinbox
+
+                params_layout.addRow(f"{param.get('label', param['name'])}:", spinbox)
+
                 if algo_name not in self.param_spinboxes:
                     self.param_spinboxes[algo_name] = {}
+
                 self.param_spinboxes[algo_name][param['name']] = spinbox
                 
             params_group.setLayout(params_layout)
@@ -231,6 +252,7 @@ class AlgorithmWidget(QWidget):
         
     def on_param_changed(self, algo_name, param_name, value):
         """Обработчик изменения параметра"""
+        print(param_name, value)
         # Проверяем, что это текущий алгоритм
         current_index = self.tabs.currentIndex()
         current_algo = self.model.get_available_algorithms()[current_index]
@@ -252,7 +274,7 @@ class AlgorithmWidget(QWidget):
 
 class PlotWidget(QWidget):
     """Виджет для отображения 3D графика"""
-    
+
     def __init__(self):
         super().__init__()
         self.current_X = None
@@ -260,54 +282,58 @@ class PlotWidget(QWidget):
         self.current_Z = None
         self.path_items = []  # Список всех элементов пути
         self.init_ui()
-        
+
     def init_ui(self):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # Создаем 3D виджет
         self.view = gl.GLViewWidget()
         self.view.setCameraPosition(distance=40, elevation=30, azimuth=45)
-        
+
         # Добавляем сетки для осей
         self.setup_grid()
-        
+
         # Элемент для отображения поверхности
         self.surface_item = None
-        
+
         layout.addWidget(self.view)
         self.setLayout(layout)
-        
+        self.setMinimumSize(400, 400)
+        self.view.setBackgroundColor((250, 250, 250))
+
     def setup_grid(self):
         """Настройка сеток координат"""
         # Сетка XY (внизу)
         gx = gl.GLGridItem()
-        gx.setSize(20, 20, 1)
-        gx.setSpacing(2, 2, 1)
+        #gx.setSize(20, 20, 20)
+        gx.setSpacing(1, 1, 1)
+        gx.scale(1, 1, 1)
+        gx.setColor((0, 0.5, 0))
         self.view.addItem(gx)
-        
+
         # Оси координат
         axis = gl.GLAxisItem()
         axis.setSize(10, 10, 10)
         self.view.addItem(axis)
-        
+
     def update_function(self, X, Y, Z):
         """Обновляет 3D график функции"""
         # Сохраняем текущие данные для обработки кликов
         self.current_X = X
         self.current_Y = Y
         self.current_Z = Z
-        
+
         # Удаляем старую поверхность
         if self.surface_item is not None:
             self.view.removeItem(self.surface_item)
-            
+
         # Нормализуем Z для цветовой карты
         z_norm = (Z - Z.min()) / (Z.max() - Z.min())
-        
+
         # Создаем цвета для поверхности (виридис)
-        colors = pg.colormap.get('viridis').mapToFloat(z_norm)
-        
+        colors = pg.colormap.get('bmy', source="colorcet").mapToFloat(z_norm)
+
         # Создаем новую поверхность
         self.surface_item = gl.GLSurfacePlotItem(
             x=X[0, :],
@@ -317,21 +343,21 @@ class PlotWidget(QWidget):
             shader='shaded',
             smooth=True
         )
-        
+
         self.view.addItem(self.surface_item)
-        
+
     def update_path(self, path):
         """Обновляет путь оптимизации в 3D"""
         # Удаляем старый путь
         self.clear_path()
-            
+
         if not path or self.current_Z is None:
             return
-            
+
         # Получаем координаты пути
         x_coords = np.array([p[0] for p in path])
         y_coords = np.array([p[1] for p in path])
-        
+
         # Вычисляем Z координаты для каждой точки пути
         # Интерполируем значения из текущей поверхности
         z_coords = []
@@ -340,45 +366,43 @@ class PlotWidget(QWidget):
             x_idx = np.argmin(np.abs(self.current_X[0, :] - x))
             y_idx = np.argmin(np.abs(self.current_Y[:, 0] - y))
             z_coords.append(self.current_Z[y_idx, x_idx])
-        
+
         z_coords = np.array(z_coords)
-        
-        # Создаем точки для линии
+
+        # # Создаем точки для линии
         pts = np.column_stack([x_coords, y_coords, z_coords])
-        
-        # Создаем линию пути (красная)
-        line_item = gl.GLLinePlotItem(
-            pos=pts,
-            color=(1.0, 0.0, 0.0, 1.0),  # Красная линия
-            width=3,
-            antialias=True
-        )
-        self.view.addItem(line_item)
-        self.path_items.append(line_item)
-        
-        # Промежуточные точки (все кроме последней) - черные
+
+        # # Создаем линию пути (красная)
+        # line_item = gl.GLLinePlotItem(
+        #     pos=pts,
+        #     color=(1.0, 0.0, 0.0, 1.0),  # Красная линия
+        #     width=3,
+        #     antialias=True
+        # )
+        # self.view.addItem(line_item)
+        # self.path_items.append(line_item)
+
         if len(pts) > 1:
             intermediate_pts = pts[:-1]
             scatter_black = gl.GLScatterPlotItem(
                 pos=intermediate_pts,
-                color=(0.0, 0.0, 0.0, 1.0),  # Черный
+                color=(0.0, 0.5, 0.5, 1.0),
                 size=6,
                 pxMode=True
             )
             self.view.addItem(scatter_black)
             self.path_items.append(scatter_black)
-        
-        # Финальная точка - красная и больше
+
         final_pt = pts[-1:]
         scatter_red = gl.GLScatterPlotItem(
             pos=final_pt,
             color=(1.0, 0.0, 0.0, 1.0),  # Красный
-            size=10,  # Больше размер для финальной точки
+            size=12,  # Больше размер для финальной точки
             pxMode=True
         )
         self.view.addItem(scatter_red)
         self.path_items.append(scatter_red)
-        
+
     def clear_path(self):
         """Очищает путь оптимизации"""
         for item in self.path_items:
@@ -388,7 +412,6 @@ class PlotWidget(QWidget):
 
 class MainView(QMainWindow):
     """Главное окно приложения"""
-    
     def __init__(self, model):
         super().__init__()
         self.model = model
@@ -408,11 +431,9 @@ class MainView(QMainWindow):
         # Splitter для управления размерами
         splitter = QSplitter(Qt.Horizontal)
         
-        # График (70% ширины)
         self.plot_widget = PlotWidget()
         splitter.addWidget(self.plot_widget)
         
-        # Правая панель (30% ширины)
         right_panel = QWidget()
         right_layout = QVBoxLayout()
         
@@ -426,10 +447,6 @@ class MainView(QMainWindow):
         
         right_panel.setLayout(right_layout)
         splitter.addWidget(right_panel)
-        
-        # Устанавливаем соотношение 70/30
-        splitter.setStretchFactor(0, 7)
-        splitter.setStretchFactor(1, 3)
         
         main_layout.addWidget(splitter)
         central_widget.setLayout(main_layout)

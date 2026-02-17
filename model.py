@@ -13,6 +13,7 @@ class OptimizationModel(QObject):
     algorithm_changed = Signal()
     optimization_step = Signal(list)  # Сигнал для каждого шага анимации
     optimization_finished = Signal()  # Сигнал окончания оптимизации
+    optimisation_result = Signal(tuple)
     
     def __init__(self):
         super().__init__()
@@ -35,7 +36,7 @@ class OptimizationModel(QObject):
         self.x_range = (-5, 5)
         self.y_range = (-5, 5)
         self.grid_size = 100
-        
+
     def set_function(self, func_name, params=None):
         """Устанавливает текущую функцию"""
         self.current_function = func_name
@@ -69,7 +70,7 @@ class OptimizationModel(QObject):
         """Обновляет параметр алгоритма"""
         self.algorithm_params[param_name] = value
         self.algorithm_changed.emit()
-        
+
     def get_function_data(self):
         """Возвращает данные функции для построения графика"""
         x = np.linspace(self.x_range[0], self.x_range[1], self.grid_size)
@@ -79,7 +80,6 @@ class OptimizationModel(QObject):
         # Получаем функцию
         func = getattr(self.funcs, self.current_function)
         Z = func(X, Y, **self.function_params)
-        
         return X, Y, Z
     
     def start_optimization(self, x0, y0):
@@ -112,6 +112,7 @@ class OptimizationModel(QObject):
         except StopIteration:
             self.optimization_generator = None
             self.optimization_finished.emit()
+            self.optimisation_result.emit(self.optimization_path[-1])
             return False
     
     def get_available_functions(self):
