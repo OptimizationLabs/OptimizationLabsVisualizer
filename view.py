@@ -275,12 +275,36 @@ class AlgorithmWidget(QWidget):
 class PlotWidget(QWidget):
     """Виджет для отображения 3D графика"""
 
+    @staticmethod
+    def scale_to_range(arr: np.ndarray, z_range=(0, 10), ref_min=None, ref_max=None) -> np.ndarray:
+        """Масштабирует массив arr к диапазону z_range (min, max)
+        Args:
+            arr: массив для масштабирования
+            z_range: целевой диапазон (min, max)
+            ref_min: опциональное reference минимальное значение (если None, используется min(arr))
+            ref_max: опциональное reference максимальное значение (если None, используется max(arr))
+        """
+        z_min, z_max = z_range
+
+        # Используем reference значения, если они предоставлены
+        arr_min = ref_min if ref_min is not None else np.min(arr)
+        arr_max = ref_max if ref_max is not None else np.max(arr)
+
+        if arr_max == arr_min:
+            return np.full_like(arr, z_min)
+
+        scaled = (arr - arr_min) / (arr_max - arr_min)
+        scaled = scaled * (z_max - z_min) + z_min
+        return scaled
+
     def __init__(self):
         super().__init__()
         self.current_X = None
         self.current_Y = None
         self.current_Z = None
-        self.path_items = []  # Список всех элементов пути
+        self.z_min = None  # Сохраняем min для масштабирования
+        self.z_max = None  # Сохраняем max для масштабирования
+        self.path_items = []
         self.init_ui()
 
     def init_ui(self):
@@ -306,7 +330,6 @@ class PlotWidget(QWidget):
         """Настройка сеток координат"""
         # Сетка XY (внизу)
         gx = gl.GLGridItem()
-        #gx.setSize(20, 20, 20)
         gx.setSpacing(1, 1, 1)
         gx.scale(1, 1, 1)
         gx.setColor((0, 0.5, 0))
@@ -324,6 +347,10 @@ class PlotWidget(QWidget):
         self.current_Y = Y
         self.current_Z = Z
 
+        # Сохраняем min и max для последующего масштабирования точек
+        self.z_min = np.min(Z)
+        self.z_max = np.max(Z)
+
         # Удаляем старую поверхность
         if self.surface_item is not None:
             self.view.removeItem(self.surface_item)
@@ -331,14 +358,14 @@ class PlotWidget(QWidget):
         # Нормализуем Z для цветовой карты
         z_norm = (Z - Z.min()) / (Z.max() - Z.min())
 
-        # Создаем цвета для поверхности (виридис)
+        # Создаем цвета для поверхности
         colors = pg.colormap.get('bmy', source="colorcet").mapToFloat(z_norm)
 
         # Создаем новую поверхность
         self.surface_item = gl.GLSurfacePlotItem(
             x=X[0, :],
             y=Y[:, 0],
-            z=Z,
+            z=PlotWidget.scale_to_range(self.current_Z),
             colors=colors,
             shader='shaded',
             smooth=True
@@ -359,7 +386,6 @@ class PlotWidget(QWidget):
         y_coords = np.array([p[1] for p in path])
 
         # Вычисляем Z координаты для каждой точки пути
-        # Интерполируем значения из текущей поверхности
         z_coords = []
         for x, y in path:
             # Находим ближайшие индексы в сетке
@@ -369,18 +395,16 @@ class PlotWidget(QWidget):
 
         z_coords = np.array(z_coords)
 
-        # # Создаем точки для линии
-        pts = np.column_stack([x_coords, y_coords, z_coords])
+        # ВАЖНО: Используем те же reference min/max, что и для поверхности
+        z_coords_scaled = PlotWidget.scale_to_range(
+            z_coords,
+            z_range=(0, 10),
+            ref_min=self.z_min,  # Используем min всей поверхности
+            ref_max=self.z_max  # Используем max всей поверхности
+        )
 
-        # # Создаем линию пути (красная)
-        # line_item = gl.GLLinePlotItem(
-        #     pos=pts,
-        #     color=(1.0, 0.0, 0.0, 1.0),  # Красная линия
-        #     width=3,
-        #     antialias=True
-        # )
-        # self.view.addItem(line_item)
-        # self.path_items.append(line_item)
+        # Создаем точки для линии с масштабированными Z
+        pts = np.column_stack([x_coords, y_coords, z_coords_scaled])
 
         if len(pts) > 1:
             intermediate_pts = pts[:-1]
@@ -396,8 +420,8 @@ class PlotWidget(QWidget):
         final_pt = pts[-1:]
         scatter_red = gl.GLScatterPlotItem(
             pos=final_pt,
-            color=(1.0, 0.0, 0.0, 1.0),  # Красный
-            size=12,  # Больше размер для финальной точки
+            color=(1.0, 0.0, 0.0, 1.0),
+            size=12,
             pxMode=True
         )
         self.view.addItem(scatter_red)
@@ -408,7 +432,6 @@ class PlotWidget(QWidget):
         for item in self.path_items:
             self.view.removeItem(item)
         self.path_items = []
-
 
 class MainView(QMainWindow):
     """Главное окно приложения"""
@@ -450,3 +473,5 @@ class MainView(QMainWindow):
         
         main_layout.addWidget(splitter)
         central_widget.setLayout(main_layout)
+
+        #self.result_widget =
