@@ -113,7 +113,7 @@ class AlgorithmWidget(QWidget):
     algorithm_changed = Signal(str, dict)
     run_optimization = Signal()
     run_optimization_random = Signal()
-    animation_speed_changed = Signal(int)  # Новый сигнал для скорости
+    animation_speed_changed = Signal(int)
     
     def __init__(self, model):
         super().__init__()
@@ -173,8 +173,21 @@ class AlgorithmWidget(QWidget):
         buttons_layout.addWidget(self.run_random_button)
         
         layout.addLayout(buttons_layout)
+
+        # QLabel результата (в самом низу, на всю ширину)
+        self.result_label = QLabel("Точка не найдена")
+        self.result_label.setAlignment(Qt.AlignCenter)
+        self.result_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+
+        layout.addWidget(self.result_label)
         
         self.setLayout(layout)
+    
+    def on_algorithm_result_coords(self, x, y, value):
+        """Обработчик результата алгоритма"""
+        self.result_label.setText(
+            f"Найдена точка: x={x:.4f}, y={y:.4f}, f(x,y)={value:.4f}"
+        )
         
     def on_speed_changed(self, value):
         """Обработчик изменения скорости анимации"""
@@ -252,7 +265,6 @@ class AlgorithmWidget(QWidget):
         
     def on_param_changed(self, algo_name, param_name, value):
         """Обработчик изменения параметра"""
-        print(param_name, value)
         # Проверяем, что это текущий алгоритм
         current_index = self.tabs.currentIndex()
         current_algo = self.model.get_available_algorithms()[current_index]
@@ -276,7 +288,7 @@ class PlotWidget(QWidget):
     """Виджет для отображения 3D графика"""
 
     @staticmethod
-    def scale_to_range(arr: np.ndarray, z_range=(0, 10), ref_min=None, ref_max=None) -> np.ndarray:
+    def scale_to_range(arr: np.ndarray, z_range=None, ref_min=None, ref_max=None) -> np.ndarray:
         """Масштабирует массив arr к диапазону z_range (min, max)
         Args:
             arr: массив для масштабирования
@@ -305,6 +317,7 @@ class PlotWidget(QWidget):
         self.z_min = None  # Сохраняем min для масштабирования
         self.z_max = None  # Сохраняем max для масштабирования
         self.path_items = []
+        self.default_normalization_scaling = (0, 10)
         self.init_ui()
 
     def init_ui(self):
@@ -355,17 +368,20 @@ class PlotWidget(QWidget):
         if self.surface_item is not None:
             self.view.removeItem(self.surface_item)
 
-        # Нормализуем Z для цветовой карты
-        z_norm = (Z - Z.min()) / (Z.max() - Z.min())
-
         # Создаем цвета для поверхности
-        colors = pg.colormap.get('bmy', source="colorcet").mapToFloat(z_norm)
+        colors = pg.colormap.get('bmy', source="colorcet").mapToFloat((Z - Z.min()) / (Z.max() - Z.min()))
 
         # Создаем новую поверхность
         self.surface_item = gl.GLSurfacePlotItem(
             x=X[0, :],
             y=Y[:, 0],
-            z=PlotWidget.scale_to_range(self.current_Z),
+            z=PlotWidget.scale_to_range(
+                self.current_Z,
+                z_range=(self.default_normalization_scaling[0],
+                         self.default_normalization_scaling[1]),
+                ref_min=self.z_min,
+                ref_max=self.z_max
+            ),
             colors=colors,
             shader='shaded',
             smooth=True
@@ -374,64 +390,59 @@ class PlotWidget(QWidget):
         self.view.addItem(self.surface_item)
 
     def update_path(self, path):
-        """Обновляет путь оптимизации в 3D"""
-        # Удаляем старый путь
+        """
+        path: список кортежей (x, y, z) — абсолютные координаты точек пути.
+        Z-координаты уже вычислены контроллером и не зависят от текущей поверхности.
+        """
         self.clear_path()
 
-        if not path or self.current_Z is None:
+        if not path:
             return
 
-        # Получаем координаты пути
         x_coords = np.array([p[0] for p in path])
         y_coords = np.array([p[1] for p in path])
+        z_coords = np.array([p[2] for p in path])
 
-        # Вычисляем Z координаты для каждой точки пути
-        z_coords = []
-        for x, y in path:
-            # Находим ближайшие индексы в сетке
-            x_idx = np.argmin(np.abs(self.current_X[0, :] - x))
-            y_idx = np.argmin(np.abs(self.current_Y[:, 0] - y))
-            z_coords.append(self.current_Z[y_idx, x_idx])
+        if self.z_min is not None and self.z_max is not None:
+            z_scaled = PlotWidget.scale_to_range(
+                z_coords,
+                z_range=(self.default_normalization_scaling[0],
+                         self.default_normalization_scaling[1]),
+                ref_min=self.z_min,
+                ref_max=self.z_max
+            )
+        else:
+            z_scaled = z_coords
 
-        z_coords = np.array(z_coords)
-
-        # ВАЖНО: Используем те же reference min/max, что и для поверхности
-        z_coords_scaled = PlotWidget.scale_to_range(
-            z_coords,
-            z_range=(0, 10),
-            ref_min=self.z_min,  # Используем min всей поверхности
-            ref_max=self.z_max  # Используем max всей поверхности
-        )
-
-        # Создаем точки для линии с масштабированными Z
-        pts = np.column_stack([x_coords, y_coords, z_coords_scaled])
-
+        pts = np.column_stack([x_coords, y_coords, z_scaled])
         if len(pts) > 1:
-            intermediate_pts = pts[:-1]
-            scatter_black = gl.GLScatterPlotItem(
-                pos=intermediate_pts,
+            scatter_path = gl.GLScatterPlotItem(
+                pos=pts[:-1],
                 color=(0.0, 0.5, 0.5, 1.0),
                 size=6,
                 pxMode=True
             )
-            self.view.addItem(scatter_black)
-            self.path_items.append(scatter_black)
+            self.view.addItem(scatter_path)
+            self.path_items.append(scatter_path)
 
-        final_pt = pts[-1:]
-        scatter_red = gl.GLScatterPlotItem(
-            pos=final_pt,
+        scatter_final = gl.GLScatterPlotItem(
+            pos=pts[-1:],
             color=(1.0, 0.0, 0.0, 1.0),
             size=12,
             pxMode=True
         )
-        self.view.addItem(scatter_red)
-        self.path_items.append(scatter_red)
+        self.view.addItem(scatter_final)
+        self.path_items.append(scatter_final)
 
     def clear_path(self):
         """Очищает путь оптимизации"""
         for item in self.path_items:
-            self.view.removeItem(item)
-        self.path_items = []
+            try:
+                self.view.removeItem(item)
+            except Exception:
+                pass
+        self.path_items.clear()
+
 
 class MainView(QMainWindow):
     """Главное окно приложения"""
@@ -441,7 +452,7 @@ class MainView(QMainWindow):
         self.init_ui()
         
     def init_ui(self):
-        self.setWindowTitle("Оптимизация функций - MVC приложение")
+        self.setWindowTitle("Optimization Labs Visualizer")
         self.setGeometry(100, 100, 1200, 800)
         
         # Центральный виджет
@@ -473,5 +484,3 @@ class MainView(QMainWindow):
         
         main_layout.addWidget(splitter)
         central_widget.setLayout(main_layout)
-
-        #self.result_widget =

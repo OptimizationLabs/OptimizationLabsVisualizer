@@ -26,15 +26,14 @@ class OptimizationAlgorithms:
                 return (x, y)
             # Backtracking
             t_k = t
+            f_current = func(x, y, **func_params)
             while True:
                 tmp_x = x - t_k * grad_x
                 tmp_y = y - t_k * grad_y
 
-                f_current = func(x, y, **func_params)
                 f_next = func(tmp_x, tmp_y, **func_params)
 
-                if (f_next - f_current < 0) or \
-                        (abs(f_next - f_current) < eps * grad_norm ** 2):
+                if f_next <= f_current - eps * t_k * grad_norm ** 2:
                     break
                 else:
                     t_k /= 2
@@ -63,34 +62,34 @@ class OptimizationAlgorithms:
                 {
                     'name': 't',
                     'label': 'Initial step (t)',
-                    'default': 0.1,
+                    'default': 0.01,
                     'min': 0.0001,
                     'max': 1.0,
-                    'step': 0.01,
+                    'step': 0.0001,
                 },
                 {
                     'name': 'eps',
                     'label': 'coefficient (eps)',
                     'default': 0.1,
-                    'min': 0.0001,
-                    'max': 1.0,
-                    'step': 0.01,
+                    'min': 1e-12,
+                    'max': 1e-1,
+                    'step': 1e-12,
                 },
                 {
                     'name': 'eps1',
                     'label': 'Gradient tolerance (eps1)',
                     'default': 1e-4,
-                    'min': 1e-6,
+                    'min': 1e-12,
                     'max': 1e-1,
-                    'step': 1e-5,
+                    'step': 1e-12,
                 },
                 {
                     'name': 'eps2',
                     'label': 'Step tolerance (eps2)',
                     'default': 1e-6,
-                    'min': 1e-8,
-                    'max': 1e-2,
-                    'step': 1e-6,
+                    'min': 1e-12,
+                    'max': 1e-1,
+                    'step': 1e-12,
                 },
                 {
                     'name': 'M',

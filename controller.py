@@ -29,6 +29,7 @@ class OptimizationController(QObject):
         self.model.algorithm_changed.connect(self.on_algorithm_changed)
         self.model.optimization_step.connect(self.on_optimization_step)
         self.model.optimization_finished.connect(self.on_optimization_finished)
+        self.model.optimization_result.connect(self.on_algorithm_result_coords)
         
         # Сигналы от View - функции
         self.view.function_widget.function_changed.connect(self.on_function_selected)
@@ -66,8 +67,6 @@ class OptimizationController(QObject):
         # Обновляем график
         X, Y, Z = self.model.get_function_data()
         self.view.plot_widget.update_function(X, Y, Z)
-        
-        # Очищаем путь оптимизации
         self.view.plot_widget.clear_path()
         
     def on_algorithm_changed(self):
@@ -83,7 +82,11 @@ class OptimizationController(QObject):
         """Обработчик завершения оптимизации"""
         # Останавливаем таймер
         self.animation_timer.stop()
-        print(f"Оптимизация завершена! Финальная точка: {self.model.optimization_path[-1]}")
+    
+    def on_algorithm_result_coords(self, result_coords: tuple):
+        """Обработчик результата оптимизации - координаты"""
+        x, y, z = result_coords
+        self.view.algorithm_widget.on_algorithm_result_coords(x, y, z)
         
     def on_animation_step(self):
         """Обработчик тика таймера анимации"""
@@ -115,13 +118,7 @@ class OptimizationController(QObject):
         # Очищаем путь
         self.view.plot_widget.clear_path()
         
-        # Генерируем случайную точку
-        import numpy as np
-        x_range = self.model.x_range
-        y_range = self.model.y_range
-        
-        x0 = np.random.uniform(x_range[0], x_range[1])
-        y0 = np.random.uniform(y_range[0], y_range[1])
+        x0, y0 = self.model.gen_random_point()
         
         # Запускаем новую оптимизацию
         self.model.start_optimization(x0, y0)

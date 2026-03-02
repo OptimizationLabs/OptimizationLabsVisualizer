@@ -13,7 +13,7 @@ class OptimizationModel(QObject):
     algorithm_changed = Signal()
     optimization_step = Signal(list)  # Сигнал для каждого шага анимации
     optimization_finished = Signal()  # Сигнал окончания оптимизации
-    optimisation_result = Signal(tuple)
+    optimization_result = Signal(tuple)
     
     def __init__(self):
         super().__init__()
@@ -36,6 +36,12 @@ class OptimizationModel(QObject):
         self.x_range = (-5, 5)
         self.y_range = (-5, 5)
         self.grid_size = 100
+    
+    def gen_random_point(self):
+        """Генерирует случайную точку в заданном диапазоне"""
+        x = np.random.uniform(self.x_range[0], self.x_range[1])
+        y = np.random.uniform(self.y_range[0], self.y_range[1])
+        return x, y
 
     def set_function(self, func_name, params=None):
         """Устанавливает текущую функцию"""
@@ -71,15 +77,18 @@ class OptimizationModel(QObject):
         self.algorithm_params[param_name] = value
         self.algorithm_changed.emit()
 
+    def get_function_z(self, x, y):
+        """Возвращает значение функции в точке (x, y)"""
+        func = getattr(self.funcs, self.current_function)
+        return func(x, y, **self.function_params)
+
     def get_function_data(self):
         """Возвращает данные функции для построения графика"""
         x = np.linspace(self.x_range[0], self.x_range[1], self.grid_size)
         y = np.linspace(self.y_range[0], self.y_range[1], self.grid_size)
         X, Y = np.meshgrid(x, y)
         
-        # Получаем функцию
-        func = getattr(self.funcs, self.current_function)
-        Z = func(X, Y, **self.function_params)
+        Z = self.get_function_z(X, Y)
         return X, Y, Z
     
     def start_optimization(self, x0, y0):
@@ -104,7 +113,7 @@ class OptimizationModel(QObject):
             
         try:
             point = next(self.optimization_generator)
-            self.optimization_path.append(point)
+            self.optimization_path.append([*point, self.get_function_z(*point)])
 
             self.optimization_step.emit(self.optimization_path.copy())
             return True
@@ -112,7 +121,7 @@ class OptimizationModel(QObject):
         except StopIteration:
             self.optimization_generator = None
             self.optimization_finished.emit()
-            self.optimisation_result.emit(self.optimization_path[-1])
+            self.optimization_result.emit(self.optimization_path[-1])
             return False
     
     def get_available_functions(self):
