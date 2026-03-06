@@ -1,4 +1,6 @@
 from math import sqrt
+import numpy as np
+from simplex_solver import kkt_simplex_with_visualization
 
 
 class OptimizationAlgorithms:
@@ -9,7 +11,6 @@ class OptimizationAlgorithms:
         """
         Градиентный спуск с делением шага (backtracking)
         """
-
         iterations = int(M)
         k = 0
         h = 1e-5
@@ -52,6 +53,15 @@ class OptimizationAlgorithms:
             k += 1
 
         return (x, y)
+
+    @staticmethod
+    def kkt_simplex(func, x0, y0, **func_params):
+        """
+        Метод оптимизации на основе условий Куна-Таккера и симплекс-метода
+        Полноценная реализация с решением системы через симплекс
+        """
+        # Используем нашу новую функцию с визуализацией
+        return kkt_simplex_with_visualization(func, x0, y0, **func_params)
 
     @staticmethod
     def get_algorithm_params(algo_name):
@@ -101,10 +111,20 @@ class OptimizationAlgorithms:
                     'step': 10,
                 },
             ],
+            'kkt_simplex': [
+                {
+                    'name': 'dummy_param',
+                    'label': 'Параметр (заглушка)',
+                    'default': 1.0,
+                    'min': 0.1,
+                    'max': 10.0,
+                    'step': 0.1,
+                },
+            ],
         }
         return params.get(algo_name, [])
 
     @staticmethod
     def get_available_algorithms():
         """Возвращает список доступных алгоритмов"""
-        return ['gradient_descent']
+        return ['gradient_descent', 'kkt_simplex']

@@ -17,6 +17,15 @@ class OptimizationFunctions:
         """Функция Растригина. Глобальный минимум: f(0, 0) = 0"""
         return 2 * a + (x ** 2 - a * np.cos(2 * np.pi * x)) + \
                        (y ** 2 - a * np.cos(2 * np.pi * y))
+    
+    @staticmethod
+    def lab2_function(x, y):
+        """
+        Функция из лабораторной работы №2
+        f(x,y) = 2x^2 + 2xy + 2y^2 - 4x - 6y
+        Минимум: f(1/3, 5/6) = -25/6 ≈ -4.1667
+        """
+        return 2*x*x + 2*x*y + 2*y*y - 4*x - 6*y
 
     @staticmethod
     def get_function_params(func_name):
@@ -29,6 +38,7 @@ class OptimizationFunctions:
             'rastrigin': [
                 {'name': 'a', 'default': 10.0, 'min': 0.1, 'max': 20.0, 'step': 0.1}
             ],
+            'lab2_function': [],
         }
         return params.get(func_name, [])
 
@@ -39,6 +49,8 @@ class OptimizationFunctions:
             for name, value in OptimizationFunctions.__dict__.items()
             if isinstance(value, staticmethod) and (not name.startswith('_'))
         ]
-        funcs.remove('get_function_params')
-        funcs.remove('get_available_functions')
+        # Убираем служебные методы
+        for method in ['get_function_params', 'get_available_functions']:
+            if method in funcs:
+                funcs.remove(method)
         return funcs
