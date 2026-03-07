@@ -1,6 +1,6 @@
 from math import sqrt
 import numpy as np
-from simplex_solver import kkt_simplex_with_visualization
+from simplex_solver import simplex_algorithm
 
 
 class OptimizationAlgorithms:
@@ -21,110 +21,93 @@ class OptimizationAlgorithms:
             grad_x = (func(x + h, y, **func_params) - func(x - h, y, **func_params)) / (2 * h)
             grad_y = (func(x, y + h, **func_params) - func(x, y - h, **func_params)) / (2 * h)
 
-            grad_norm = sqrt(grad_x ** 2 + grad_y ** 2)
+            grad_norm = sqrt(grad_x**2 + grad_y**2)
 
             if grad_norm <= eps1:
-                return (x, y)
-            # Backtracking
+                return
+
             t_k = t
             f_current = func(x, y, **func_params)
             while True:
                 tmp_x = x - t_k * grad_x
                 tmp_y = y - t_k * grad_y
-
                 f_next = func(tmp_x, tmp_y, **func_params)
 
-                if f_next <= f_current - eps * t_k * grad_norm ** 2:
+                if f_next <= f_current - eps * t_k * grad_norm**2:
                     break
-                else:
-                    t_k /= 2
+                t_k /= 2
 
-            step_norm = sqrt((tmp_x - x) ** 2 + (tmp_y - y) ** 2)
+            step_norm = sqrt((tmp_x - x)**2 + (tmp_y - y)**2)
             func_diff = abs(f_next - f_current)
 
-            # обновляем точку
             x_new, y_new = tmp_x, tmp_y
-
             yield (x_new, y_new)
 
             if step_norm < eps2 and func_diff < eps2:
-                return (x_new, y_new)
+                return
+
             x, y = x_new, y_new
             k += 1
 
-        return (x, y)
-
     @staticmethod
-    def kkt_simplex(func, x0, y0, **func_params):
+    def simplex(func, x0, y0, **func_params):
         """
-        Метод оптимизации на основе условий Куна-Таккера и симплекс-метода
-        Полноценная реализация с решением системы через симплекс
+        Метод с симплексом для квадратичного программирования
+        Реализует алгоритм из лабораторной работы №2
         """
-        # Используем нашу новую функцию с визуализацией
-        return kkt_simplex_with_visualization(func, x0, y0, **func_params)
+        return simplex_algorithm(func, x0, y0, **func_params)
 
     @staticmethod
     def get_algorithm_params(algo_name):
         """Возвращает параметры алгоритма"""
-
         params = {
             'gradient_descent': [
                 {
                     'name': 't',
-                    'label': 'Initial step (t)',
-                    'default': 0.01,
-                    'min': 0.0001,
+                    'label': 'Начальный шаг',
+                    'default': 0.1,
+                    'min': 0.001,
                     'max': 1.0,
-                    'step': 0.0001,
+                    'step': 0.001,
                 },
                 {
                     'name': 'eps',
-                    'label': 'coefficient (eps)',
+                    'label': 'Эпсилон',
                     'default': 0.1,
-                    'min': 1e-12,
-                    'max': 1e-1,
-                    'step': 1e-12,
+                    'min': 0.01,
+                    'max': 0.5,
+                    'step': 0.01,
                 },
                 {
                     'name': 'eps1',
-                    'label': 'Gradient tolerance (eps1)',
+                    'label': 'Точность по градиенту',
                     'default': 1e-4,
-                    'min': 1e-12,
-                    'max': 1e-1,
-                    'step': 1e-12,
+                    'min': 1e-8,
+                    'max': 1e-2,
+                    'step': 1e-4,
                 },
                 {
                     'name': 'eps2',
-                    'label': 'Step tolerance (eps2)',
+                    'label': 'Точность по шагу',
                     'default': 1e-6,
-                    'min': 1e-12,
-                    'max': 1e-1,
-                    'step': 1e-12,
+                    'min': 1e-8,
+                    'max': 1e-2,
+                    'step': 1e-4,
                 },
                 {
                     'name': 'M',
-                    'label': 'Max iterations (M)',
-                    'default': 200,
+                    'label': 'Макс. итераций',
+                    'default': 100,
                     'type': int,
                     'min': 10,
-                    'max': 2000,
+                    'max': 10000,
                     'step': 10,
                 },
-            ],
-            'kkt_simplex': [
-                {
-                    'name': 'dummy_param',
-                    'label': 'Параметр (заглушка)',
-                    'default': 1.0,
-                    'min': 0.1,
-                    'max': 10.0,
-                    'step': 0.1,
-                },
-            ],
+            ]
         }
         return params.get(algo_name, [])
 
     @staticmethod
     def get_available_algorithms():
         """Возвращает список доступных алгоритмов"""
-        return ['gradient_descent', 'kkt_simplex']
+        return ['gradient_descent', 'simplex']
