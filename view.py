@@ -369,16 +369,15 @@ class PlotWidget(QWidget):
             self.view.removeItem(self.surface_item)
 
         # Создаем цвета для поверхности
-        colors = pg.colormap.get('bmy', source="colorcet").mapToFloat((Z - Z.min()) / (Z.max() - Z.min()))
+        colors = pg.colormap.get('bmy', source="colorcet").mapToFloat((Z.T - Z.min()) / (Z.max() - Z.min()))
 
         # Создаем новую поверхность
         self.surface_item = gl.GLSurfacePlotItem(
             x=X[0, :],
             y=Y[:, 0],
             z=PlotWidget.scale_to_range(
-                self.current_Z,
-                z_range=(self.default_normalization_scaling[0],
-                         self.default_normalization_scaling[1]),
+                self.current_Z.T,
+                z_range=self.default_normalization_scaling,
                 ref_min=self.z_min,
                 ref_max=self.z_max
             ),
