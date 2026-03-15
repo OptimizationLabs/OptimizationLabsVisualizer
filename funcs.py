@@ -35,7 +35,7 @@ class OptimizationFunctions:
             'rastrigin': [
                 {'name': 'a', 'default': 10.0, 'min': 0.1, 'max': 20.0, 'step': 0.1}
             ],
-            'lab2_function': []
+            'quad_with_constraints': []
         }
         return params.get(func_name, [])
 
