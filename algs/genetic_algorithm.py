@@ -60,13 +60,20 @@ class GeneticAlgorithm:
             )
         )
 
-    def mutation(self, individual) -> tuple:
+    def mutation(self, individual, m = 20) -> tuple:
         """Мутация особи"""
         x, y = individual
         if np.random.rand() < self._mutation_param:
+            alpha = 0.5
+            x_ratio = (self._life_space[0][1] - self._life_space[0][0])
+            y_ratio = (self._life_space[1][1] - self._life_space[1][0])
             mult = np.random.choice([-1, 1])
-            x += mult * np.random.normal(0, self._mutation_param)
-            y += mult * np.random.normal(0, self._mutation_param)
+            delta = sum(
+                (1 if np.random.rand() < 1 / m else 0) * 2**(-i)
+                for i in range(1, m + 1)
+            )
+            x += mult * alpha * x_ratio * delta
+            y += mult * alpha * y_ratio * delta
             x = max(self._life_space[0][0], min(x, self._life_space[0][1]))
             y = max(self._life_space[1][0], min(y, self._life_space[1][1]))
         return x, y
@@ -96,7 +103,7 @@ def genetic_algorithm(func, x_range: tuple, y_range: tuple, pop_size: int, survi
     alg_model = GeneticAlgorithm(func, x_range, y_range, pop_size, survived_size, p_mutation, generations, **func_params)
     population = alg_model.get_population()
     yield sorted(population, key=lambda x: alg_model._func(*x, **alg_model._func_params))
-    for gen_iter in range(generations):
+    for _ in range(generations):
         survived = alg_model.parent_selection()
         while len(survived) < alg_model.get_population_size():
             idx1, idx2 = np.random.choice(len(survived), size=2, replace=False)

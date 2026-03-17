@@ -164,11 +164,11 @@ class AlgorithmWidget(QWidget):
         # Кнопки запуска оптимизации
         buttons_layout = QVBoxLayout()
         
-        self.run_button = QPushButton("Запустить из центра (0, 0)")
-        self.run_button.clicked.connect(self.run_optimization.emit)
-        buttons_layout.addWidget(self.run_button)
+        #self.run_button = QPushButton("Запустить из центра (0, 0)")
+        #self.run_button.clicked.connect(self.run_optimization.emit)
+        #buttons_layout.addWidget(self.run_button)
         
-        self.run_random_button = QPushButton("Запустить из случайной точки")
+        self.run_random_button = QPushButton("Запустить оптимизацию")
         self.run_random_button.clicked.connect(self.run_optimization_random.emit)
         buttons_layout.addWidget(self.run_random_button)
         
