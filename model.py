@@ -2,7 +2,7 @@
 import numpy as np
 from PySide6.QtCore import QObject, Signal
 from funcs import OptimizationFunctions
-from algs import OptimizationAlgorithms
+from algs_lib import OptimizationAlgorithmsFacade
 
 
 class OptimizationModel(QObject):
@@ -24,9 +24,9 @@ class OptimizationModel(QObject):
         self.function_params = {}
         
         # Алгоритм оптимизации
-        self.algos = OptimizationAlgorithms()
-        self.current_algorithm = 'gradient_descent'
-        self.algorithm_params = {}
+        self.algos = OptimizationAlgorithmsFacade()
+        self.current_algorithm = self.algos.get_available_algorithms()[0]
+        self.algorithm_params = self.algos.get_algorithm_params(self.current_algorithm)
         
         # Путь оптимизации и генератор
         self.optimization_path = []
@@ -90,21 +90,21 @@ class OptimizationModel(QObject):
         
         Z = self.get_function_z(X, Y)
         return X, Y, Z
+
+    def clear_path(self):
+        """Очищает путь оптимизации"""
+        self.optimization_path = []
     
     def start_optimization(self, x0, y0):
-        """Запускает алгоритм оптимизации - создает генератор"""
-        func = getattr(self.funcs, self.current_function)
-        algo = getattr(self.algos, self.current_algorithm)
-        
+        """Запускает алгоритм оптимизации - создает генератор""" 
         # Сбрасываем путь
         self.optimization_path = []
         
         # Создаем генератор
-        self.optimization_generator = algo(
-            func, x0, y0, 
-            **self.algorithm_params,
-            **self.function_params
-        )
+        self.optimization_generator = self.algos.run(self.current_algorithm, self)
+            # func, x0, y0, 
+            # **self.algorithm_params,
+            # **self.function_params
         
     def step_optimization(self):
         """Выполняет один шаг оптимизации"""
@@ -112,8 +112,9 @@ class OptimizationModel(QObject):
             return False
             
         try:
-            point = next(self.optimization_generator)
-            self.optimization_path.append([*point, self.get_function_z(*point)])
+            points = next(self.optimization_generator)
+            for point in points:
+                self.optimization_path.append([*point, self.get_function_z(*point)])
 
             self.optimization_step.emit(self.optimization_path.copy())
             return True
@@ -139,3 +140,7 @@ class OptimizationModel(QObject):
     def get_algorithm_params_info(self, algo_name):
         """Возвращает информацию о параметрах алгоритма"""
         return self.algos.get_algorithm_params(algo_name)
+
+    def get_current_function(self):
+        """Возвращает текущую функцию оптимизации"""
+        return getattr(self.funcs, self.current_function)
