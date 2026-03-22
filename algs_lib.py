@@ -1,7 +1,7 @@
 from algs.simplex_solver import simplex_algorithm
 from algs.gradient_descent import gradient_descent
 from algs.genetic_algorithm import genetic_algorithm
-
+from algs.particle_swarm import particle_swarm
 
 def _run_gradient_descent(model):
     func    = model.get_current_function()
@@ -35,11 +35,24 @@ def _run_genetic(model):
         **model.function_params,
     )
 
+def _run_particle_swarm(model):
+    p = model.algorithm_params
+    return particle_swarm(
+        model.get_current_function(),
+        model.x_range, model.y_range,
+        p['num_particles'],
+        p['generations'],
+        p['current_velocity_ratio'],
+        p['local_velocity_ratio'],
+        p['global_velocity_ratio'],
+        model.clear_path,
+        **model.function_params,
+    )
 
 class OptimizationAlgorithmsFacade:
 
     @staticmethod
-    def run(algo_name: str, optimization_model: 'OptimizationModel'):
+    def run(algo_name: str, optimization_model):
         """Запускает алгоритм по имени"""
         entry = OptimizationAlgorithmsFacade.ALGORITHM_REGISTRY.get(algo_name)
         if entry is None:
@@ -81,6 +94,16 @@ class OptimizationAlgorithmsFacade:
                 {'name': 'die_size',   'label': 'Смертность популяции','default': 25,  'min': 10,  'max': 500,  'step': 10,   'type': int},
                 {'name': 'p_mutation', 'label': 'Вероятность мутации', 'default': 0.1, 'min': 0.0, 'max': 1.0,  'step': 0.01},
                 {'name': 'generations','label': 'Макс. поколений',    'default': 100, 'min': 10,  'max': 1000, 'step': 10,   'type': int},
+            ],
+        },
+        'particle_swarm': {
+            'run': _run_particle_swarm,
+            'params': [
+                {'name': 'num_particles', 'label': 'Размер роя', 'default': 30, 'min': 10, 'max': 200, 'step': 5, 'type': int},
+                {'name': 'generations', 'label': 'Макс. итераций', 'default': 100, 'min': 10, 'max': 1000, 'step': 10, 'type': int},
+                {'name': 'current_velocity_ratio', 'label': 'Коэффициент текущей скорости (k)', 'default': 1.0, 'min': 0.01, 'max': 2.0, 'step': 0.01},
+                {'name': 'local_velocity_ratio', 'label': 'Локальный коэффициент (phi_p)', 'default': 2.05, 'min': 0.1, 'max': 5.0, 'step': 0.05},
+                {'name': 'global_velocity_ratio', 'label': 'Глобальный коэффициент (phi_g)', 'default': 2.05, 'min': 0.1, 'max': 5.0, 'step': 0.05},
             ],
         },
     }
