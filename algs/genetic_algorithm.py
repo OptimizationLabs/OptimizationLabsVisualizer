@@ -118,5 +118,4 @@ def genetic_algorithm(func, x_range: tuple, y_range: tuple, pop_size: int, survi
         alg_model.set_population(population)
         if clear_view:
             clear_view()
-        yield sorted(population, key=lambda x: alg_model._func(*x, **alg_model._func_params))
-
+        yield sorted(population, key=lambda x: alg_model._func(*x, **alg_model._func_params), reverse=True)

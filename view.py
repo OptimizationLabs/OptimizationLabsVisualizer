@@ -390,8 +390,9 @@ class PlotWidget(QWidget):
 
     def update_path(self, path):
         """
-        path: список кортежей (x, y, z) — абсолютные координаты точек пути.
-        Z-координаты уже вычислены контроллером и не зависят от текущей поверхности.
+        Красная точка ВСЕГДА стоит на ПОСЛЕДНЕЙ точке в списке path.
+        Для градиентного спуска и симплекса — это финальное решение.
+        Для PSO и GA — это лучшая особь.
         """
         self.clear_path()
 
@@ -405,8 +406,7 @@ class PlotWidget(QWidget):
         if self.z_min is not None and self.z_max is not None:
             z_scaled = PlotWidget.scale_to_range(
                 z_coords,
-                z_range=(self.default_normalization_scaling[0],
-                         self.default_normalization_scaling[1]),
+                z_range=self.default_normalization_scaling,
                 ref_min=self.z_min,
                 ref_max=self.z_max
             )
@@ -414,24 +414,27 @@ class PlotWidget(QWidget):
             z_scaled = z_coords
 
         pts = np.column_stack([x_coords, y_coords, z_scaled])
-        if len(pts) > 1:
-            scatter_path = gl.GLScatterPlotItem(
-                pos=pts[:-1],
-                color=(0.0, 0.5, 0.5, 1.0),
-                size=6,
-                pxMode=True
-            )
-            self.view.addItem(scatter_path)
-            self.path_items.append(scatter_path)
 
-        scatter_final = gl.GLScatterPlotItem(
-            pos=pts[-1:],
-            color=(1.0, 0.0, 0.0, 1.0),
-            size=12,
+        # Все точки — бирюзовые
+        scatter_all = gl.GLScatterPlotItem(
+            pos=pts,
+            color=(0.0, 0.5, 0.5, 1.0),
+            size=6,
             pxMode=True
         )
-        self.view.addItem(scatter_final)
-        self.path_items.append(scatter_final)
+        self.view.addItem(scatter_all)
+        self.path_items.append(scatter_all)
+
+        # Красная точка — СТРОГО ПОСЛЕДНЯЯ в списке
+        if len(pts) > 0:
+            scatter_best = gl.GLScatterPlotItem(
+                pos=pts[-1:],
+                color=(1.0, 0.0, 0.0, 1.0),
+                size=12,
+                pxMode=True
+            )
+            self.view.addItem(scatter_best)
+            self.path_items.append(scatter_best)
 
     def clear_path(self):
         """Очищает путь оптимизации"""
