@@ -60,8 +60,8 @@ class GeneticAlgorithm:
             )
         )
 
-    def mutation(self, individual, m = 20) -> tuple:
-        """Мутация особи"""
+    def mutation_old(self, individual, m = 20) -> tuple:
+        """Мутация особи(особенность данной реализации - сдвиг относительно прямой)"""
         x, y = individual
         if np.random.rand() < self._mutation_param:
             alpha = 0.5
@@ -77,6 +77,33 @@ class GeneticAlgorithm:
             x = max(self._life_space[0][0], min(x, self._life_space[0][1]))
             y = max(self._life_space[1][0], min(y, self._life_space[1][1]))
         return x, y
+    
+
+    def mutation(self, individual, m = 20) -> tuple:
+        """Мутации особей"""
+        x, y = individual
+        if np.random.rand() < self._mutation_param:
+            alpha = 0.5
+            x_ratio = (self._life_space[0][1] - self._life_space[0][0])
+            y_ratio = (self._life_space[1][1] - self._life_space[1][0])
+            mult_x = np.random.choice([-1, 1])
+            mult_y = np.random.choice([-1, 1])
+            delta_x = sum(
+                (1 if np.random.rand() < 1 / m else 0) * 2**(-i)
+                for i in range(1, m + 1)
+            )
+
+            delta_y = sum(
+                (1 if np.random.rand() < 1 / m else 0) * 2**(-i)
+                for i in range(1, m + 1)
+            )
+            
+            x += mult_x * alpha * x_ratio * delta_x
+            y += mult_y * alpha * y_ratio * delta_y
+            x = max(self._life_space[0][0], min(x, self._life_space[0][1]))
+            y = max(self._life_space[1][0], min(y, self._life_space[1][1]))
+        return x, y
+    
 
     @staticmethod
     def _fitness(F_i, F_min, F_max):
