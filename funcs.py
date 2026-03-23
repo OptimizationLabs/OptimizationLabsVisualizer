@@ -18,12 +18,21 @@ class OptimizationFunctions:
                      (y**2 - a * np.cos(2 * np.pi * y))
     
     @staticmethod
-    def quad_with_constraints(x, y):
+    def quadratic(x, y):
         """
         Функция из лабораторной работы №2
         f(x,y) = 2x^2 + 2xy + 2y^2 - 4x - 6y
         """
         return 2*x*x + 2*x*y + 2*y*y - 4*x - 6*y
+
+    @staticmethod
+    def schwefel(x, y, scale=500):
+        """Функция Швефеля"""
+        return -1 * (
+            x * scale * np.sin(np.sqrt(np.abs(x * scale))) +
+            y * scale * np.sin(np.sqrt(np.abs(y * scale)))
+        ) / scale
+        
 
     @staticmethod
     def get_function_params(func_name):
@@ -35,7 +44,8 @@ class OptimizationFunctions:
             'rastrigin': [
                 {'name': 'a', 'default': 10.0, 'min': 0.1, 'max': 20.0, 'step': 0.1}
             ],
-            'quad_with_constraints': []
+            'quadratic': [],
+            'schwefel': []
         }
         return params.get(func_name, [])
 

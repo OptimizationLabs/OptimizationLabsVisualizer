@@ -122,9 +122,15 @@ class OptimizationModel(QObject):
         except StopIteration:
             self.optimization_generator = None
             self.optimization_finished.emit()
-            self.optimization_result.emit(self.optimization_path[-1])
+            
+            # Всегда передаём ПОСЛЕДНЮЮ точку (она — лучшая/финальная)
+            if self.optimization_path:
+                self.optimization_result.emit(tuple(self.optimization_path[-1]))
+            else:
+                self.optimization_result.emit((0.0, 0.0, 0.0))
+            
             return False
-    
+        
     def get_available_functions(self):
         """Возвращает список доступных функций"""
         return self.funcs.get_available_functions()
