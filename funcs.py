@@ -24,6 +24,11 @@ class OptimizationFunctions:
         f(x,y) = 2x^2 + 2xy + 2y^2 - 4x - 6y
         """
         return 2*x*x + 2*x*y + 2*y*y - 4*x - 6*y
+    
+    @staticmethod
+    def rosenbrock(x, y, scale=0.25):
+        """Функция Розенброка"""
+        return (1 - x * scale)**2 + 100 * (y * scale - (x * scale)**2)**2
 
     @staticmethod
     def schwefel(x, y, scale=500):
@@ -45,6 +50,7 @@ class OptimizationFunctions:
                 {'name': 'a', 'default': 10.0, 'min': 0.1, 'max': 20.0, 'step': 0.1}
             ],
             'quadratic': [],
+            'rosenbrock': [],
             'schwefel': []
         }
         return params.get(func_name, [])
