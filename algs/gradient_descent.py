@@ -1,5 +1,4 @@
 from math import sqrt
-import numpy as np
 
 def gradient_descent(func, x0, y0, t, eps, eps1, eps2, M, **func_params):
     """

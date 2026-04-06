@@ -2,6 +2,7 @@ from algs.simplex_solver import simplex_algorithm
 from algs.gradient_descent import gradient_descent
 from algs.genetic_algorithm import genetic_algorithm
 from algs.particle_swarm import particle_swarm
+from algs.bees_algorithm import bees_algorithm
 
 def _run_gradient_descent(model):
     func    = model.get_current_function()
@@ -45,6 +46,26 @@ def _run_particle_swarm(model):
         p['current_velocity_ratio'],
         p['local_velocity_ratio'],
         p['global_velocity_ratio'],
+        model.clear_path,
+        **model.function_params,
+    )
+
+def _run_bees_algorithm(model):
+    p = model.algorithm_params
+    return bees_algorithm(
+        model.get_current_function(),
+        model.x_range,
+        model.y_range,
+        p['n_scouts'],
+        p['n_elite'],
+        p['n_best'],
+        p['n_elite_bees'],
+        p['n_best_bees'],
+        p['r_elite'],
+        p['r_best'],
+        p['max_iter'],
+        p['stagnation'],
+        p['eps'],
         model.clear_path,
         **model.function_params,
     )
@@ -104,6 +125,25 @@ class OptimizationAlgorithmsFacade:
                 {'name': 'current_velocity_ratio', 'label': 'Коэффициент текущей скорости (k)', 'default': 1.0, 'min': 0.01, 'max': 2.0, 'step': 0.01},
                 {'name': 'local_velocity_ratio', 'label': 'Локальный коэффициент (phi_p)', 'default': 2.05, 'min': 0.1, 'max': 5.0, 'step': 0.05},
                 {'name': 'global_velocity_ratio', 'label': 'Глобальный коэффициент (phi_g)', 'default': 2.05, 'min': 0.1, 'max': 5.0, 'step': 0.05},
+            ],
+        },
+        'bees_algorithm': {
+            'run': _run_bees_algorithm,
+            'params': [
+                {'name': 'n_scouts', 'label': 'Число разведчиков', 'default': 16, 'min': 5, 'max': 100, 'step': 1, 'type': int},
+                {'name': 'n_elite', 'label': 'Элитные участки', 'default': 2, 'min': 1, 'max': 10, 'step': 1, 'type': int},
+                {'name': 'n_best', 'label': 'Лучшие участки', 'default': 3, 'min': 0, 'max': 20, 'step': 1, 'type': int},
+
+                {'name': 'n_elite_bees', 'label': 'Пчёлы в элитных участках', 'default': 7, 'min': 1, 'max': 50, 'step': 1, 'type': int},
+                {'name': 'n_best_bees', 'label': 'Пчёлы в лучших участках', 'default': 4, 'min': 1, 'max': 50, 'step': 1, 'type': int},
+
+                {'name': 'r_elite', 'label': 'Радиус элитных участков', 'default': 0.4, 'min': 0.001, 'max': 2.0, 'step': 0.01},
+                {'name': 'r_best', 'label': 'Радиус лучших участков', 'default': 0.2, 'min': 0.001, 'max': 2.0, 'step': 0.01},
+
+                {'name': 'max_iter', 'label': 'Макс. итераций', 'default': 500, 'min': 10, 'max': 2000, 'step': 10, 'type': int},
+                {'name': 'stagnation', 'label': 'Порог стагнации', 'default': 20, 'min': 5, 'max': 200, 'step': 1, 'type': int},
+
+                {'name': 'eps', 'label': 'Порог улучшения (ε)', 'default': 2.0, 'min': 1e-6, 'max': 10.0, 'step': 0.01},
             ],
         },
     }
