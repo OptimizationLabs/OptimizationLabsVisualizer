@@ -3,6 +3,8 @@ from algs.gradient_descent import gradient_descent
 from algs.genetic_algorithm import genetic_algorithm
 from algs.particle_swarm import particle_swarm
 from algs.bees_algorithm import bees_algorithm
+from algs.immune_network import immune_network
+
 
 def _run_gradient_descent(model):
     func    = model.get_current_function()
@@ -66,6 +68,21 @@ def _run_bees_algorithm(model):
         p['max_iter'],
         p['stagnation'],
         p['eps'],
+        model.clear_path,
+        **model.function_params,
+    )
+    
+def _run_immune_network(model):
+    p = model.algorithm_params
+    return immune_network(
+        model.get_current_function(),
+        model.x_range, model.y_range,
+        p['pop_size'],
+        p['n_b'],
+        p['n_c'],
+        p['n_d'],
+        p['alpha'],
+        p['generations'],
         model.clear_path,
         **model.function_params,
     )
@@ -144,6 +161,17 @@ class OptimizationAlgorithmsFacade:
                 {'name': 'stagnation', 'label': 'Порог стагнации', 'default': 20, 'min': 5, 'max': 200, 'step': 1, 'type': int},
 
                 {'name': 'eps', 'label': 'Порог улучшения (ε)', 'default': 2.0, 'min': 1e-6, 'max': 10.0, 'step': 0.01},
+            ],
+        },
+        'immune_network': {
+            'run': _run_immune_network,
+            'params': [
+                {'name': 'pop_size',     'label': 'Размер популяции',               'default': 50,  'min': 10,  'max': 200,  'step': 5,   'type': int},
+                {'name': 'n_b',          'label': 'Число лучших для клонирования (n_b)', 'default': 10,  'min': 1,   'max': 50,   'step': 1,   'type': int},
+                {'name': 'n_c',          'label': 'Число клонов на антитело (n_c)',   'default': 5,   'min': 1,   'max': 20,   'step': 1,   'type': int},
+                {'name': 'n_d',          'label': 'Число лучших клонов (n_d)',        'default': 5,   'min': 1,   'max': 20,   'step': 1,   'type': int},
+                {'name': 'alpha',        'label': 'Коэффициент мутации α',            'default': 0.5, 'min': 0.01, 'max': 5.0,  'step': 0.01},
+                {'name': 'generations',  'label': 'Макс. поколений',                 'default': 50, 'min': 10,  'max': 1000, 'step': 10,  'type': int},
             ],
         },
     }
