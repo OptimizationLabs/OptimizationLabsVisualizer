@@ -1,3 +1,4 @@
+from algs.bacterial_algorithm import bacterial_optimization
 from algs.simplex_solver import simplex_algorithm
 from algs.gradient_descent import gradient_descent
 from algs.genetic_algorithm import genetic_algorithm
@@ -87,6 +88,24 @@ def _run_immune_network(model):
         **model.function_params,
     )
 
+def _run_bacterial_algorithm(model):
+    p = model.algorithm_params
+    return bacterial_optimization(
+        model.get_current_function(),
+        model.x_range, model.y_range,
+        p['n_bacteria'],
+        p['n_chemotaxis'],
+        p['n_reproduction'],
+        p['n_elimination'],
+        p['step_size'],
+        p['decay_rate'],
+        p['max_iter'],
+        p['stagnation'],
+        p['elim_prob'],
+        model.clear_path,
+        **model.function_params,
+    )
+
 class OptimizationAlgorithmsFacade:
 
     @staticmethod
@@ -172,6 +191,25 @@ class OptimizationAlgorithmsFacade:
                 {'name': 'n_d',          'label': 'Число лучших клонов (n_d)',        'default': 5,   'min': 1,   'max': 20,   'step': 1,   'type': int},
                 {'name': 'alpha',        'label': 'Коэффициент мутации α',            'default': 0.5, 'min': 0.01, 'max': 5.0,  'step': 0.01},
                 {'name': 'generations',  'label': 'Макс. поколений',                 'default': 50, 'min': 10,  'max': 1000, 'step': 10,  'type': int},
+            ],
+        },
+        'bacterial_algorithm': {
+            'run': _run_bacterial_algorithm,
+            'params': [
+                {'name': 'n_bacteria', 'label': 'Количество бактерий', 'default': 20, 'min': 5, 'max': 100, 'step': 1, 'type': int},
+                {'name': 'n_chemotaxis', 'label': 'Шагов хемотаксиса', 'default': 100, 'min': 10, 'max': 1000, 'step': 10, 'type': int},
+                {'name': 'n_reproduction', 'label': 'Частота размножения (каждая n-я бактерия)', 'default': 4, 'min': 1, 'max': 20, 'step': 1, 'type': int},
+                {'name': 'n_elimination', 'label': 'Количество процедур ликвидации и рассеивания', 'default': 2, 'min': 0, 'max': 10, 'step': 1, 'type': int},
+                {'name': 'step_size', 'label': 'Начальный размер шага хемотаксиса', 'default': 0.1, 'min': 0.001, 'max': 1.0, 'step': 0.01},
+                {'name': 'decay_rate', 'label': 'Коэффициент затухания размера шага', 'default': 0.9, 'min': 0.5, 'max': 0.99, 'step': 0.01},
+                {'name': 'max_iter',   'label': 'Макс. итераций',   'default': 500,   'min': 10,   'max': 2000,   'step': 10,   'type': int},
+                {'name': 'stagnation',   'label':'Порог стагнации',    'default' :5 ,   'min' :1 ,    'max' :200 ,    'step' :1 ,    'type' :int},
+                {'name':'elim_prob',    'label':'Вероятность ликвидации бактерии на каждом шаге',    # noqa
+                 'default' :0.25 ,    # noqa
+                 'min' :0.0 ,    # noqa
+                 'max' :1.0 ,    # noqa
+                 'step' :0.01 ,    # noqa
+                 'type' :float},   # noqa
             ],
         },
     }
