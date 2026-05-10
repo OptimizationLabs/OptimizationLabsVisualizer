@@ -122,7 +122,7 @@ class GeneticAlgorithm:
             population.append((x, y))
         return population
 
-def genetic_algorithm(func, x_range: tuple, y_range: tuple, pop_size: int, survived_size: int, p_mutation: float, generations: int = 100, clear_view=None, **func_params):
+def genetic_algorithm(func, x_range: tuple, y_range: tuple, pop_size: int, survived_size: int, p_mutation: float, generations: int = 25, clear_view=None, **func_params):
     """
     Метод генетической оптимизации для квадратичного программирования
     Реализует алгоритм из лабораторной работы №3

@@ -5,6 +5,7 @@ from algs.genetic_algorithm import genetic_algorithm
 from algs.particle_swarm import particle_swarm
 from algs.bees_algorithm import bees_algorithm
 from algs.immune_network import immune_network
+from algs.hybrid_algorithm import hybrid_algorithm
 
 
 def _run_gradient_descent(model):
@@ -17,7 +18,7 @@ def _run_gradient_descent(model):
         p.get('eps',  0.1),
         p.get('eps1', 1e-4),
         p.get('eps2', 1e-6),
-        p.get('M',    100),
+        p.get('M',    25),
         **model.function_params,
     )
 
@@ -105,6 +106,30 @@ def _run_bacterial_algorithm(model):
         model.clear_path,
         **model.function_params,
     )
+    
+def _run_hybrid_algorithm(model):
+    """Runner for hybrid GA + GD"""
+    func = model.get_current_function()
+    p = model.algorithm_params
+    return hybrid_algorithm(
+        func,
+        model.x_range, model.y_range,
+        # GA parameters
+        pop_size=p.get('pop_size', 50),
+        die_size=p.get('die_size', 25),
+        p_mutation=p.get('p_mutation', 0.1),
+        ga_generations=p.get('ga_generations', 25),
+        # GD parameters
+        t=p.get('t', 0.1),
+        eps=p.get('eps', 0.1),
+        eps1=p.get('eps1', 1e-4),
+        eps2=p.get('eps2', 1e-6),
+        M=p.get('M', 25),
+        # Hybrid specific
+        num_refine_best=p.get('num_refine_best', 5),
+        clear_view=model.clear_path,
+        **model.function_params
+    )
 
 class OptimizationAlgorithmsFacade:
 
@@ -137,7 +162,7 @@ class OptimizationAlgorithmsFacade:
                 {'name': 'eps',  'label': 'Эпсилон',              'default': 0.1,  'min': 0.01,  'max': 0.5,  'step': 0.01},
                 {'name': 'eps1', 'label': 'Точность по градиенту','default': 1e-4, 'min': 1e-8,  'max': 1e-2, 'step': 1e-4},
                 {'name': 'eps2', 'label': 'Точность по шагу',     'default': 1e-6, 'min': 1e-8,  'max': 1e-2, 'step': 1e-4},
-                {'name': 'M',    'label': 'Макс. итераций',       'default': 100,  'min': 10,    'max': 10000,'step': 10, 'type': int},
+                {'name': 'M',    'label': 'Макс. итераций',       'default': 25,  'min': 10,    'max': 10000,'step': 10, 'type': int},
             ],
         },
         'simplex': {
@@ -150,7 +175,7 @@ class OptimizationAlgorithmsFacade:
                 {'name': 'pop_size',   'label': 'Размер популяции',   'default': 50,  'min': 10,  'max': 500,  'step': 10,   'type': int},
                 {'name': 'die_size',   'label': 'Смертность популяции','default': 25,  'min': 10,  'max': 500,  'step': 10,   'type': int},
                 {'name': 'p_mutation', 'label': 'Вероятность мутации', 'default': 0.1, 'min': 0.0, 'max': 1.0,  'step': 0.01},
-                {'name': 'generations','label': 'Макс. поколений',    'default': 100, 'min': 10,  'max': 1000, 'step': 10,   'type': int},
+                {'name': 'generations','label': 'Макс. поколений',    'default': 25, 'min': 10,  'max': 1000, 'step': 10,   'type': int},
             ],
         },
         'particle_swarm': {
@@ -210,6 +235,26 @@ class OptimizationAlgorithmsFacade:
                  'max' :1.0 ,    # noqa
                  'step' :0.01 ,    # noqa
                  'type' :float},   # noqa
+            ],
+        },
+        'hybrid_algorithm': {
+            'run': _run_hybrid_algorithm,
+            'params': [
+                # GA params
+                {'name': 'pop_size', 'label': 'Размер популяции (GA)', 'default': 50, 'min': 10, 'max': 500, 'step': 10, 'type': int},
+                {'name': 'die_size', 'label': 'Выжившие (GA)', 'default': 25, 'min': 10, 'max': 500, 'step': 10, 'type': int},
+                {'name': 'p_mutation', 'label': 'Вероятность мутации (GA)', 'default': 0.1, 'min': 0.0, 'max': 1.0, 'step': 0.01},
+                {'name': 'ga_generations', 'label': 'Поколений GA', 'default': 25, 'min': 10, 'max': 500, 'step': 10, 'type': int},
+                
+                # GD params
+                {'name': 't', 'label': 'Начальный шаг (GD)', 'default': 0.1, 'min': 0.001, 'max': 1.0, 'step': 0.001},
+                {'name': 'eps', 'label': 'Эпсилон (GD)', 'default': 0.1, 'min': 0.01, 'max': 0.5, 'step': 0.01},
+                {'name': 'eps1', 'label': 'Точность по градиенту (GD)', 'default': 1e-4, 'min': 1e-8, 'max': 1e-2, 'step': 1e-4},
+                {'name': 'eps2', 'label': 'Точность по шагу (GD)', 'default': 1e-6, 'min': 1e-8, 'max': 1e-2, 'step': 1e-4},
+                {'name': 'M', 'label': 'Макс. итераций GD', 'default': 25, 'min': 10, 'max': 1000, 'step': 10, 'type': int},
+                
+                # Hybrid param
+                {'name': 'num_refine_best', 'label': 'Уточнять лучших (из GA)', 'default': 5, 'min': 1, 'max': 20, 'step': 1, 'type': int},
             ],
         },
     }
