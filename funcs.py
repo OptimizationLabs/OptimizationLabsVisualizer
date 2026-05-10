@@ -37,18 +37,11 @@ class OptimizationFunctions:
             x * scale * np.sin(np.sqrt(np.abs(x * scale))) +
             y * scale * np.sin(np.sqrt(np.abs(y * scale)))
         ) / scale
-
-    @staticmethod
-    def reversed_spheric(x, y, a = 1):
-        return -a*(x**2 + y**2)
     
     @staticmethod
     def get_function_params(func_name):
         params = {
             'sphere': [
-                {'name': 'a', 'default': 1.0, 'min': 0.1, 'max': 10.0, 'step': 0.1}
-            ],
-            'reversed_spheric': [
                 {'name': 'a', 'default': 1.0, 'min': 0.1, 'max': 10.0, 'step': 0.1}
             ],
             'himmelblau': [],
